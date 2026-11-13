@@ -29,6 +29,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Install Android SDK packages required by app/build.gradle.kts (compileSdk 35).
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
@@ -37,11 +38,22 @@ jobs:
             platforms;android-35
             build-tools;35.0.0
 
-      - name: Grant Gradle permission
-        run: chmod +x gradlew
+      # The repository currently has no Gradle Wrapper. Install Gradle 8.9
+      # directly; AGP 8.7.3 requires Gradle 8.9 or newer.
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Verify toolchain
+        run: |
+          java -version
+          gradle --version
+          echo "ANDROID_HOME=${ANDROID_HOME}"
+          sdkmanager --list_installed
 
       - name: Build debug APK
-        run: ./gradlew :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v6
@@ -50,3 +62,14 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload build reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: RF-RECON-Build-Reports
+          path: |
+            **/build/reports/
+            **/build/outputs/logs/
+          if-no-files-found: ignore
+          retention-days: 7
